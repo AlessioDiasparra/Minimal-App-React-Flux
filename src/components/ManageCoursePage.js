@@ -1,29 +1,40 @@
 import React, { useState, useEffect } from "react";
 import CourseForm from "./CourseForm";
-import * as courseApi from "../api/courseApi";
+import courseStore from "../stores/courseStore";
+import * as courseActions from "../actions/courseActions";
 import { toast } from "react-toastify";
 //import { Prompt } from "react-router-dom";
 
 export default function ManageCoursePage(props) {
   const [errors, setErrors] = useState({});
+  const [courses, setCourses] = useState(courseStore.getCourses());
   //course salva lo state, setCourse setter
   const [course, setCourse] = useState({
     id: null, //VALORI DEFAULT
     slug: "",
     title: "",
     authorId: null,
-    category: "",
+    category: ""
   });
 
   //HOOK che read URL per popolare il form
   useEffect(() => {
+    courseStore.addChangeListener(onChange);
     //from path '/courses/:slug'
     const slug = props.match.params.slug;
-    if (slug) {
+    //controllo se ci sono i corsi nello stato
+    if (courses.length === 0) {
+      courseActions.loadCourses();
+    } else if (slug) {
       //_course per conflitto con variabile di sopra, _variabile locale
-      courseApi.getCourseBySlug(slug).then((_course) => setCourse(_course));
+      setCourse(courseStore.getCourseBySlug(slug));
     }
-  }, [props.match.params.slug]); //se url cambia effettua ri-rendering
+    return () => courseStore.removeChangeListener(onChange);
+  }, [courses.length, props.match.params.slug]); //se cambia l'array di dipendenze effettua ri-rendering
+
+  function onChange() {
+    setCourses(courseStore.getCourses());
+  }
 
   // DESTRUCTURING const { target } = event
   const handleChange = ({ target }) => {
@@ -32,13 +43,14 @@ export default function ManageCoursePage(props) {
     const updatedCourse = {
       ...course,
       //COMPUTED PROPERTY proprietà calcolata
-      [target.name]: target.value,
+      [target.name]: target.value
     };
     setCourse(updatedCourse);
   };
 
   const formIsValid = () => {
     const _errors = {};
+
     if (!course.title) _errors.title = "Titolo obbligatorio";
     if (!course.authorId) _errors.authorId = "Author id obbligatorio";
     if (!course.category) _errors.category = "Categoria obbligatoria";
@@ -49,12 +61,12 @@ export default function ManageCoursePage(props) {
   };
 
   // SAVE DATA FORM
-  const handleSubmit = (event) => {
+  const handleSubmit = event => {
     event.preventDefault();
 
     if (!formIsValid()) return;
 
-    courseApi.saveCourse(course).then(() => {
+    courseActions.saveCourse(course).then(() => {
       props.history.push("/courses");
       toast.success("Corso salvato");
     });
